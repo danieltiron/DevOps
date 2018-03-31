@@ -1,0 +1,14 @@
+---
+- name: "Install common tools"
+  apt: 
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - vim
+    - python-pip
+    - python-dev
+    - build-essential
+    - default-jdk
+    - curl
+    - apt-transport-https
+  tags: base

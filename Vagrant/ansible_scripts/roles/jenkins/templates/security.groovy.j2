@@ -1,0 +1,28 @@
+#!groovy
+
+// Jenkins.instance.injector.getInstance(AdminWhitelistRule.class)
+//     .setMasterKillSwitch(false);
+
+// jenkins.model.Jenkins.instance.getDescriptor("jenkins.CLI").get().setEnabled(false)
+
+// HashSet<String> oldProtocols = new HashSet<>(instance.getAgentProtocols())
+// oldProtocols.removeAll(Arrays.asList("JNLP3-connect", "JNLP2-connect", "JNLP-connect", "CLI-connect"))
+// instance.setAgentProtocols(oldProtocols)
+
+// instance.setCrumbIssuer(new DefaultCrumbIssuer(true))
+
+import jenkins.model.*
+import hudson.security.*
+
+def instance = Jenkins.getInstance()
+
+println "--> creating local user 'admin'"
+
+def hudsonRealm = new HudsonPrivateSecurityRealm(false)
+hudsonRealm.createAccount('{{ admin_username }}','{{ admin_password }}')
+instance.setSecurityRealm(hudsonRealm)
+
+def strategy = new FullControlOnceLoggedInAuthorizationStrategy()
+strategy.setAllowAnonymousRead(false)
+instance.setAuthorizationStrategy(strategy)
+instance.save()

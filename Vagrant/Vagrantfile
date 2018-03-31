@@ -1,19 +1,43 @@
-# -*- mode: ruby -*-
-# vi: set ft=ruby :
-
 Vagrant.configure("2") do |config|
-  config.vm.box = "centos/7"
-  config.vm.box_check_update = false
-  config.vm.network "forwarded_port", guest: 80, host: 8080
-  config.vm.network "private_network", ip: "192.168.33.10"
-  config.vm.synced_folder "shared_folder", "/Shared"
-    
-  config.ssh.insert_key = false 
 
-  config.vm.provider "virtualbox" do |vb|
-    vb.gui = false
-    vb.memory = "2048"
-    vb.cpus = 1
-    vb.name = "My_CentOS_7"
+  config.vm.define "ansible" do |ansible|
+    ansible.vm.hostname = 'ansible'
+    ansible.vm.box = "bento/ubuntu-16.04"
+
+    ansible.vm.network :private_network, ip: "192.168.56.101"
+    ansible.vm.network :forwarded_port, guest: 22, host: 10122, id: "ssh"
+    ansible.vm.synced_folder "ansible_scripts", "/home/vagrant/ansible-scripts",  mount_options: ["dmode=777", "fmode=666"]
+
+    ansible.vm.provider :virtualbox do |v|
+      v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      v.customize ["modifyvm", :id, "--memory", 1024]
+      v.customize ["modifyvm", :id, "--name", "ansible"]
+    end
+
+    ansible.vbguest.auto_update = false
+    ansible.vbguest.no_remote = true
+
+    ansible.vm.provision "shell", path: "shell_provision/prepare_ansible.sh"
   end
+
+  config.vm.define "jenkins" do |jenkins|
+    jenkins.vm.hostname = 'jenkins'
+    jenkins.vm.box = "bento/ubuntu-16.04"
+
+    jenkins.vm.network :private_network, ip: "192.168.56.102"
+    jenkins.vm.network :forwarded_port, guest: 22, host: 10222, id: "ssh"
+
+    jenkins.vm.provider :virtualbox do |v|
+      v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+      v.customize ["modifyvm", :id, "--memory", 1024]
+      v.customize ["modifyvm", :id, "--name", "jenkins"]
+    end
+
+    jenkins.vbguest.auto_update = false
+    jenkins.vbguest.no_remote = true
+    
+    jenkins.vm.provision "file", source: "ansible_scripts/ssh_keys/id_rsa.pub", destination: "/tmp/id_rsa.pub"
+    jenkins.vm.provision "shell", path: "shell_provision/prepare_jenkins.sh"
+  end
+
 end

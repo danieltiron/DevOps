@@ -1,0 +1,30 @@
+---
+- name: install UFW
+  apt:
+    name: firewalld
+    state: latest
+  tags: firewall
+
+- name: configure ufw rules
+  ufw: rule={{ item.rule }} src={{ item.ip }} port={{ item.port }} proto={{ item.proto }}
+  with_items:
+    - { rule: 'allow', ip: '192.168.56.101', port: '8080', proto: 'tcp' }
+    - { rule: 'allow', ip: '192.168.56.101', port: '22', proto: 'tcp' }    
+    - { rule: 'allow', ip: '89.137.185.54', port: '8080', proto: 'tcp' }
+    - { rule: 'allow', ip: '89.137.185.54', port: '22', proto: 'tcp' }
+
+  notify:
+    - restart ufw
+  tags: firewall
+
+- name: enable ufw logs
+  ufw: 
+    logging: "on"
+  notify:
+    - restart ufw
+  tags: firewall
+
+- name: enable ufw
+  ufw: 
+    state: enabled
+  tags: firewall
