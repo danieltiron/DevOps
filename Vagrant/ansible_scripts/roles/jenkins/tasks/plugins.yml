@@ -1,0 +1,28 @@
+---
+- name: get list of plugins
+  command: java -jar "{{ jenkins_jar_location }}" -s http://localhost:8080/ list-plugins --username "{{ admin.username }}" --password "{{ admin.password }}"
+  register: plugin_list
+  changed_when: False
+
+- name: Install Jenkins plugins using password.
+  command: java -jar "{{ jenkins_jar_location }}" -s http://127.0.0.1:8080/ install-plugin "{{ item }}" --username "{{ admin.username }}" --password "{{ admin.password }}"
+  with_items: "{{ jenkins_plugins }}"
+  when: item not in plugin_list.stdout
+  notify: restart jenkins
+  retries: 3
+  delay: 3
+  register: result
+  until: result.rc == 0
+  tags: jenkins
+
+- name: list plugins to update
+  shell: "java -jar {{ jenkins_jar_location }} -s http://localhost:8080/ list-plugins --username {{ admin.username }} --password {{ admin.password }} | grep -e ')$' | awk '{ print $1 }'"
+  register: plugins_update
+  changed_when: False
+  tags: jenkins
+
+- name: update plugins
+  command: java -jar "{{ jenkins_jar_location }}" -s http://127.0.0.1:8080/ install-plugin "{{ item }}" --username "{{ admin.username }}" --password "{{ admin.password }}"
+  notify: restart jenkins
+  with_items: "{{ plugins_update.stdout_lines }}"
+  tags: jenkins

@@ -1,12 +1,37 @@
 ---
-admin_username: 'admin'
-admin_password: 'admin'
+jenkins_version: ''
 jenkins_hostname: 'localhost'
 jenkins_http_port: 8080
 jenkins_jar_location: /opt/jenkins-cli.jar
 jenkins_connection_delay: 5
 jenkins_connection_retries: 60
-my_jenkins_params:
-  url_username: admin
-  url_password: admin
-  url: http://localhost:8888
+jenkins_plugins:
+  - cloudbees-folder
+  - gradle
+  - ws-cleanup
+  - timestamper
+  - git-client
+  - github-branch-source
+  - git
+  - gitlab-plugin
+  - workflow-aggregator
+  - htmlpublisher
+  - testng-plugin
+  - influxdb
+  - blueocean
+  - locale
+  - monitoring
+  - email-ext
+  - simple-theme-plugin
+  - warnings
+  - sonar
+  - build-user-vars-plugin
+
+admin:
+  username: admin
+  password_hash: salt:8ce9635a5c70fefbd4832ae40a57fd0c75e340f181c70ba10f4e08e50038c974
+  password: test123
+
+jenkins_users:
+  tester:
+    password: qwerty123

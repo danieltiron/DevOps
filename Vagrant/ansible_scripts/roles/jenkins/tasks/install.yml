@@ -1,0 +1,42 @@
+---
+- name: define jenkins_repo_url
+  set_fact:
+    jenkins_repo_url: deb https://pkg.jenkins.io/debian binary/
+  when: jenkins_repo_url is not defined
+  tags: jenkins
+
+- name: define jenkins_repo_key_url
+  set_fact:
+    jenkins_repo_key_url: https://pkg.jenkins.io/debian/jenkins.io.key
+  when: jenkins_repo_key_url is not defined
+  tags: jenkins
+
+- name: define jenkins_pkg_url
+  set_fact:
+    jenkins_pkg_url: https://pkg.jenkins.io/debian/binary
+  when: jenkins_pkg_url is not defined
+  tags: jenkins
+
+- name: download Jenkins
+  get_url:
+    url: "{{ jenkins_pkg_url }}/jenkins_2.96_all.deb"
+    dest: "/tmp/jenkins_2.96_all.deb"
+  tags: jenkins
+
+- name: check if we downloaded Jenkins.
+  stat:
+    path: "/tmp/jenkins_2.96_all.deb"
+  tags: jenkins
+
+- name: install Jenkins
+  apt:
+    deb: "/tmp/jenkins_2.96_all.deb"
+    state: present
+  register: is_installed
+  tags: jenkins
+
+- name: ensure Jenkins is installed
+  apt:
+    name: jenkins
+    state: present
+  tags: jenkins

@@ -1,43 +1,43 @@
-Vagrant.configure("2") do |config|
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
 
-  config.vm.define "ansible" do |ansible|
-    ansible.vm.hostname = 'ansible'
-    ansible.vm.box = "bento/ubuntu-16.04"
+# README
+#
+# Getting Started:
+# 1. vagrant plugin install vagrant-hostmanager
+# 2. vagrant up
+# 3. vagrant ssh
+#
+# This should put you at the control host
+#  with access, by name, to other vms
+Vagrant.configure(2) do |config|
+  config.hostmanager.enabled = true
 
-    ansible.vm.network :private_network, ip: "192.168.56.101"
-    ansible.vm.network :forwarded_port, guest: 22, host: 10122, id: "ssh"
-    ansible.vm.synced_folder "ansible_scripts", "/home/vagrant/ansible-scripts",  mount_options: ["dmode=777", "fmode=666"]
+  config.vm.box = "ubuntu/trusty64"
 
-    ansible.vm.provider :virtualbox do |v|
-      v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-      v.customize ["modifyvm", :id, "--memory", 1024]
-      v.customize ["modifyvm", :id, "--name", "ansible"]
-    end
+  config.vm.define "ansible", primary: true do |h|
+    h.vm.network "private_network", ip: "192.168.135.10"
+    h.vm.provision :shell, :inline => <<'EOF'
+if [ ! -f "/home/vagrant/.ssh/id_rsa" ]; then
+  ssh-keygen -t rsa -N "" -f /home/vagrant/.ssh/id_rsa
+fi
+cp /home/vagrant/.ssh/id_rsa.pub /vagrant/control.pub
 
-    ansible.vbguest.auto_update = false
-    ansible.vbguest.no_remote = true
+cat << 'SSHEOF' > /home/vagrant/.ssh/config
+Host *
+  StrictHostKeyChecking no
+  UserKnownHostsFile=/dev/null
+SSHEOF
 
-    ansible.vm.provision "shell", path: "shell_provision/prepare_ansible.sh"
+chown -R vagrant:vagrant /home/vagrant/.ssh/
+EOF
+
+    h.vm.provision "shell", path: "shell_provision/install_ansible.sh"
+    h.vm.synced_folder "ansible_scripts", "/home/vagrant/ansible-scripts",  mount_options: ["dmode=777", "fmode=666"]
   end
 
-  config.vm.define "jenkins" do |jenkins|
-    jenkins.vm.hostname = 'jenkins'
-    jenkins.vm.box = "bento/ubuntu-16.04"
-
-    jenkins.vm.network :private_network, ip: "192.168.56.102"
-    jenkins.vm.network :forwarded_port, guest: 22, host: 10222, id: "ssh"
-
-    jenkins.vm.provider :virtualbox do |v|
-      v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-      v.customize ["modifyvm", :id, "--memory", 1024]
-      v.customize ["modifyvm", :id, "--name", "jenkins"]
-    end
-
-    jenkins.vbguest.auto_update = false
-    jenkins.vbguest.no_remote = true
-    
-    jenkins.vm.provision "file", source: "ansible_scripts/ssh_keys/id_rsa.pub", destination: "/tmp/id_rsa.pub"
-    jenkins.vm.provision "shell", path: "shell_provision/prepare_jenkins.sh"
+  config.vm.define "jenkins" do |h|
+    h.vm.network "private_network", ip: "192.168.135.11"
+    h.vm.provision :shell, inline: 'cat /vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
   end
-
 end

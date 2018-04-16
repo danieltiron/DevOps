@@ -1,0 +1,4 @@
+---
+jenkins_users:
+  gogu:
+    password: qwerty123

@@ -1,0 +1,18 @@
+---
+- name: list users
+  find:
+    paths: /var/lib/jenkins/users
+    file_type: directory
+  changed_when: False
+  become: yes
+  become_user: jenkins
+  register: user_list
+  tags: jenkins
+
+- name: create users
+  shell: "echo 'jenkins.model.Jenkins.instance.securityRealm.createAccount(\"{{ item }}\", \"{{ jenkins_users[item].password }}\")' | java -jar {{ jenkins_jar_location }} -auth admin:{{ admin_user.password }} -s http://localhost:8080/ groovy ="
+  with_items: "{{ jenkins_users }}"
+  become: yes
+  become_user: jenkins
+  when: '"{{ item }}" not in "{{ user_list.files }}"'
+  tags: jenkins

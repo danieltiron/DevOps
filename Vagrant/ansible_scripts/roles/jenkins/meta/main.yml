@@ -6,4 +6,6 @@ galaxy_info:
   platforms:
   - name: Ubuntu
     versions:
-    - xenial
+    - trusty
+dependencies:
+  - { role: java }

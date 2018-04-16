@@ -1,75 +1,94 @@
 ---
-- name: Define jenkins_repo_url
+- name: define jenkins_repo_url
   set_fact:
     jenkins_repo_url: deb https://pkg.jenkins.io/debian binary/
   when: jenkins_repo_url is not defined
+  tags: jenkins
 
-- name: Define jenkins_repo_key_url
+- name: define jenkins_repo_key_url
   set_fact:
     jenkins_repo_key_url: https://pkg.jenkins.io/debian/jenkins.io.key
   when: jenkins_repo_key_url is not defined
+  tags: jenkins
 
-- name: Define jenkins_pkg_url
+- name: define jenkins_pkg_url
   set_fact:
     jenkins_pkg_url: https://pkg.jenkins.io/debian/binary
   when: jenkins_pkg_url is not defined
+  tags: jenkins
 
-- name: Download specific Jenkins version.
+- name: download Jenkins
   get_url:
     url: "{{ jenkins_pkg_url }}/jenkins_2.96_all.deb"
     dest: "/tmp/jenkins_2.96_all.deb"
+  tags: jenkins
 
-- name: Check if we downloaded a specific version of Jenkins.
+- name: check if we downloaded Jenkins.
   stat:
     path: "/tmp/jenkins_2.96_all.deb"
+  tags: jenkins
 
-- name: Install our specific version of Jenkins.
+- name: install Jenkins
   apt:
     deb: "/tmp/jenkins_2.96_all.deb"
-    state: installed
+    state: present
   register: is_installed
+  tags: jenkins
 
-- name: Ensure Jenkins is installed.
+- name: ensure Jenkins is installed
   apt:
     name: jenkins
     state: present
+  tags: jenkins
+- name: set the jenkins shell
+  user:
+    name: jenkins
+    shell: /bin/bash
+  tags: jenkins
+
+- name: ensure .ssh folder exists
+  file:
+    path: /var/lib/jenkins/.ssh
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: 0700
+  tags: jenkins
 
 - name: ensure jenkins.install.UpgradeWizard.state exists
   wait_for:
     path: /var/lib/jenkins/jenkins.install.UpgradeWizard.state
     state: present
+  tags: jenkins
 
-- name: Create initialization scripts directory
+- name: create initialization scripts directory
   file: 
     path: /var/lib/jenkins/init.groovy.d
     state: directory
     owner: jenkins
     group: jenkins
     mode: 0775
-
-- name: Add initialization script to setup basic security
-  template: 
-    src: security.groovy.j2
-    dest: /var/lib/jenkins/init.groovy.d/security.groovy
-  notify: restart jenkins  
+  tags: jenkins
 
 - name: wait for initialAdminPassword
   wait_for: 
     path: /var/lib/jenkins/secrets/initialAdminPassword
     state: present
   when: is_installed.changed
+  tags: jenkins
 
 - stat: 
     path: /var/lib/jenkins/secrets/initialAdminPassword
   register: adminpassword
+  tags: jenkins
 
-- name: Bypass - initialAdminPassword
+- name: bypass - initialAdminPassword
   shell: mv /var/lib/jenkins/secrets/initialAdminPassword /root
-  notify:
-    - restart jenkins
+  notify: restart jenkins
   when: adminpassword.stat.exists == True
+  tags: jenkins
 
-- name: Bypass - jenkins.install.InstallUtil.lastExecVersion
+- name: bypass - jenkins.install.InstallUtil.lastExecVersion
   copy: 
     src: /var/lib/jenkins/jenkins.install.UpgradeWizard.state
     dest: /var/lib/jenkins/jenkins.install.InstallUtil.lastExecVersion
@@ -77,30 +96,44 @@
     group: jenkins
     remote_src: True
   notify: restart jenkins
+  tags: jenkins
 
-- name: Ensure Jenkins is started and runs on startup.
-  service: name=jenkins state=started enabled=yes
+- name: ensure jenkins is started and runs on startup.
+  service:
+    name: jenkins
+    state: started
+    enabled: yes
+  tags: jenkins
 
-- name: Wait for Jenkins to start up before proceeding.
-  shell: "curl -D - --silent --max-time 5 http://{{ jenkins_hostname }}:{{ jenkins_http_port }}/cli/"
-  register: result
-  until: (result.stdout.find("403 Forbidden") != -1) or (result.stdout.find("200 OK") != -1) and (result.stdout.find("Please wait while") == -1)
-  retries: "{{ jenkins_connection_retries }}"
-  delay: "{{ jenkins_connection_delay }}"
-  changed_when: false
-
-- name: wait for initialAdminPassword
+- name: wait for config file
   wait_for: 
     path: /var/lib/jenkins/config.xml
     state: present
-
-- name: skip install plugin wizard
-  lineinfile:
+  tags: jenkins
+  
+- name: skip install plugin wizzard
+  template: 
+    src: config_jenkins.xml.j2
     dest: /var/lib/jenkins/config.xml
-    regexp: '^\s*<name>NEW.*'
-    line: '    <name>RUNNING</name>'
-    backrefs: yes
   notify: restart jenkins
+  tags: jenkins
+
+- name: copy config.xml for admin
+  template:
+    src: config_admin.xml.j2
+    dest: /var/lib/jenkins/users/admin/config.xml
+    owner: jenkins
+    group: jenkins
+    force: yes
+  when: is_installed.changed
+  notify: restart jenkins
+  tags:
+    - jenkins
+    - skip_ansible_lint
+
+- name: restart jenkins
+  meta: flush_handlers
+  tags: jenkins
 
 - name: Get the jenkins-cli jarfile from the Jenkins server.
   get_url:
@@ -111,18 +144,24 @@
   retries: 5
   delay: 10
 
-#install plugins
-- name: Install Jenkins plugins using password.
-  jenkins_plugin:
-    name: git
-    jenkins_home: /var/lib/jenkins
-    params:
-      url_username: "{{ jenkins_admin_username }}"
-    url_password: "{{ jenkins_admin_password }}"
-    state: "{{ jenkins_plugins_state }}"
-    timeout: "{{ jenkins_plugin_timeout }}"
-    updates_expiration: "{{ jenkins_plugin_updates_expiration }}"
-    url: "http://{{ jenkins_hostname }}:{{ jenkins_http_port }}{{ jenkins_url_prefix }}"
-  with_items: "{{ jenkins_plugins }}"
-  when: jenkins_admin_password != ""
-  notify: restart jenkins
+- name: list users
+  find:
+    paths: /var/lib/jenkins/users
+    file_type: directory
+  changed_when: False
+  become: yes
+  become_user: jenkins
+  register: user_list
+  tags: jenkins
+
+- name: create users
+  shell: "echo 'jenkins.model.Jenkins.instance.securityRealm.createAccount(\"{{ item }}\", \"{{ jenkins_users[item].password }}\")' | java -jar {{ jenkins_jar_location }} -auth {{ admin.username }}:{{ admin.password }} -s http://localhost:8080/ groovy ="
+  with_items: "{{ jenkins_users }}"
+  become: yes
+  become_user: jenkins
+  when: '"{{ item }}" not in "{{ user_list.files }}"'
+  tags: jenkins
+
+- name: install plugins
+  include: plugins.yml
+  tags: jenkins

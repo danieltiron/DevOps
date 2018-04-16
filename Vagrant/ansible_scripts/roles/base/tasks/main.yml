@@ -1,8 +1,11 @@
 ---
 - name: "Install common tools"
-  apt: 
+  apt:
+    update_cache: yes
     name: "{{ item }}"
     state: latest
+  become: true
+  become_user: root
   with_items:
     - vim
     - python-pip
