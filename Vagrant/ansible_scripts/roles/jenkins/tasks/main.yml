@@ -165,3 +165,8 @@
 - name: install plugins
   include: plugins.yml
   tags: jenkins
+
+- name: configure jobs
+  include: jobs.yml
+  with_dict: "{{ jenkins_jobs }}"
+  tags: jenkins

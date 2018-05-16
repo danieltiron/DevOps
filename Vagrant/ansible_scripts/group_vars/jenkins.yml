@@ -35,3 +35,26 @@ admin:
 jenkins_users:
   tester:
     password: qwerty123
+  
+jenkins_credentials:
+  git_user:
+    template_name: user_publickey.j2
+    name: git_user_to_pull_code
+
+jenkins_jobs:
+  static_pipeline_job_example:
+    job_template: static_pipeline_git.j2
+    job_name: static_job_name
+    git_repo: git_repo_url
+    git_user_id: "{{ jenkins_credentials.git_user.name }}"
+    git_branch: master
+    script_path: Jenkinsfile path
+
+  scm_poll_job_example:
+    git_branch: master
+    job_template: scm_poll_job.j2
+    job_name: scm_poll_job_name
+    git_repo: git_repo_url
+    git_user_id: "{{ jenkins_credentials.git_user.name }}"
+    git_folder: local-env
+    script_path: Jenkinsfile path

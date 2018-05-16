@@ -1,0 +1,37 @@
+---
+- name: ensure job_templates folder exists
+  file:
+    path: /tmp/job_templates/
+    state: directory
+  tags: jenkins
+
+- name: copy {{ item.key }}.xml to host
+  template:
+    src: templates/job_templates/{{ item.value.job_template }}
+    dest: /tmp/job_templates/{{ item.key }}.xml
+    owner: jenkins
+    group: jenkins
+    force: yes
+  tags: jenkins
+
+- name: list existing jobs
+  command: java -jar {{ jenkins_jar_location }} -s http://localhost:8080/ list-jobs --username "{{ admin.username }}" --password "{{ admin.password }}"
+  register: job_list
+  become: yes
+  become_user: jenkins
+  changed_when: False
+  tags: jenkins
+
+- name: update {{ item.key }} job
+  shell: java -jar {{ jenkins_jar_location }} -s http://localhost:8080/ update-job {{ item.key }} --username "{{ admin.username }}" --password "{{ admin.password }}" < /tmp/job_templates/{{ item.key }}.xml
+  become: yes
+  become_user: jenkins
+  when: item.key in job_list.stdout
+  tags: jenkins
+
+- name: create if not exist {{ item.key }} job
+  shell: java -jar {{ jenkins_jar_location }} -s http://localhost:8080/ create-job {{ item.key }} --username "{{ admin.username }}" --password "{{ admin.password }}" < /tmp/job_templates/{{ item.key }}.xml
+  become: yes
+  become_user: jenkins
+  when: item.key not in job_list.stdout
+  tags: jenkins

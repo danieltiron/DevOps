@@ -1,7 +1,13 @@
 ---
-- hosts: jenkins
+- hosts: jenkins, metrics
   become: yes
   roles:
   - base
   # - ufw
+
+- hosts: jenkins
   - jenkins
+
+# - hosts: metrics
+#   - influxdb
+#   - grafana
