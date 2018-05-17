@@ -2,12 +2,14 @@
 - hosts: jenkins, metrics
   become: yes
   roles:
-  - base
-  # - ufw
+    - base
 
 - hosts: jenkins
-  - jenkins
+  become: yes
+  roles:
+    - jenkins
 
-# - hosts: metrics
-#   - influxdb
-#   - grafana
+- hosts: metrics
+  become: yes
+  roles:
+  - influxdb

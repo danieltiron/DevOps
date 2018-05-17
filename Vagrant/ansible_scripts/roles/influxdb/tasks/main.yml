@@ -1,0 +1,53 @@
+---
+- name: install dependencies
+  apt: 
+    name: "{{ item }}" 
+    state: present 
+    update_cache: yes 
+    cache_valid_time: 3600
+  with_items:
+    - python-httplib2
+    - python-apt
+    - curl
+    - apt-transport-https
+
+- name: install pip dependencies
+  apt: 
+    name: "{{ item }}" 
+    state: present 
+    update_cache: yes 
+    cache_valid_time: 3600
+  with_items:
+    - python-pip
+
+- name: check influx repo exists
+  stat:
+      path: /etc/apt/sources.list.d/influxdb.list
+  register: repo_exists
+
+- name: add influx repo key
+  script: add_influx_repo.sh
+  when: repo_exists.stat.exists == false
+
+- name: add influx repo file
+  copy:
+    src: influxdb.list
+    dest: /etc/apt/sources.list.d/
+    owner: root
+    group: root
+    mode: 0644
+  when: repo_exists.stat.exists == false
+
+- name: install InfluxDB
+  apt:
+    update_cache: yes
+    name: influxdb
+    state: present
+  notify: restart influx
+
+- name: check influx service is running
+  service: 
+    name: influxdb
+    state: started
+    enabled: yes
+    
