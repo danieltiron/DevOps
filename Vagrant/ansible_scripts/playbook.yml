@@ -12,4 +12,5 @@
 - hosts: metrics
   become: yes
   roles:
-  - influxdb
+    - influxdb
+    - grafana

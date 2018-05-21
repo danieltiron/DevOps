@@ -1,0 +1,25 @@
+- name: restart influxdb service
+  service:
+    name: influxdb
+    state: restarted
+    enabled: yes
+  tags: influxdb
+
+- name: create influxDB user
+  command: influx -execute "CREATE USER admin2018 WITH PASSWORD 'qwerty123' WITH ALL PRIVILEGES"
+  when: "'admin2018' not in user_info.stdout"
+  register: task_result
+  until: task_result.rc == 0
+  ignore_errors: yes
+  retries: 12
+  delay: 5
+  tags:
+    - influxdb
+    - skip_ansible_lint
+
+- name: create metrics db
+  command: influx  -username admin2018 -password qwerty123 -execute "CREATE DATABASE all_metrics"
+  when: "'admin2018' not in user_info.stdout"
+  tags:
+    - influxdb
+    - skip_ansible_lint

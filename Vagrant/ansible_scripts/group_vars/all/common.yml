@@ -1,0 +1,6 @@
+---
+influx_user: admin2018
+influx_pass: qwerty123
+influx_db:
+  jenkins: all_metrics
+  telegraf: telegraf_metrics

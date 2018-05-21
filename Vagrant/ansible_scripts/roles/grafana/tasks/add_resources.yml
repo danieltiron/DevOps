@@ -1,0 +1,151 @@
+---
+- name: create Grafana API authorization key
+  uri:
+    url: http://{{ grafana_admin }}:{{ grafana_pass }}@localhost:{{ grafana_port }}/api/auth/keys
+    status_code: 200, 111
+    method: POST
+    force_basic_auth: yes
+    validate_certs: no
+    headers:
+      Content-Type: application/json
+    body_format: json
+    return_content: yes
+    body:
+      {
+        "role":"Admin",
+        "name":"api_key"
+      }
+  register: authkey
+  until: authkey.status == 200
+  retries: 12
+  delay: 5
+  tags: grafana
+
+- name: add jenkins as data source
+  uri:
+    url: http://localhost:{{ grafana_port }}/api/datasources
+    follow_redirects: all
+    method: POST
+    validate_certs: no
+    force_basic_auth: yes
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+      Authorization: "Bearer {{ authkey.json.key }}"
+    body_format: json
+    body:
+      {
+        "name":"jenkins",
+        "type":"influxdb",
+        "url":"http://localhost:8086",
+        "access":"proxy",
+        "basicAuth":true,
+        jsonData: {
+          "tlsSkipVerify":true
+        },
+        "basicAuthUser":"{{ influx_user }}",
+        "basicAuthPassword":"{{ influx_pass }}",
+        "isDefault":true,
+        "password":"{{ influx_pass }}",
+        "user":"{{ influx_user }}",
+        "tlsSkipVerify":true,
+        "database":"{{ influx_db.jenkins }}"
+      }
+  when: authkey.status == 200
+  tags: grafana
+
+- name: add telegraf as data source
+  uri:
+    url: http://localhost:{{ grafana_port }}/api/datasources
+    follow_redirects: all
+    method: POST
+    validate_certs: no
+    force_basic_auth: yes
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+      Authorization: "Bearer {{ authkey.json.key }}"
+    body_format: json
+    body:
+      {
+        "name":"telegraf",
+        "type":"influxdb",
+        "url":"http://localhost:8086",
+        "access":"proxy",
+        "basicAuth":true,
+        jsonData: {
+          "tlsSkipVerify":true
+        },
+        "basicAuthUser":"{{ influx_user }}",
+        "basicAuthPassword":"{{ influx_pass }}",
+        "isDefault":false,
+        "password":"{{ influx_pass }}",
+        "user":"{{ influx_user }}",
+        "database":"{{ influx_db.telegraf }}"
+      }
+  when: authkey.status == 200
+  tags: grafana
+
+- name: add email as notifications channel
+  uri:
+    url: http://localhost:{{ grafana_port }}/api/alert-notifications
+    follow_redirects: all
+    method: POST
+    validate_certs: no
+    force_basic_auth: yes
+    headers:
+      Accept: application/json
+      Content-Type: application/json
+      Authorization: "Bearer {{ authkey.json.key }}"
+    body_format: json
+    body:
+      {
+        "name": "Alert someone",
+        "type":  "email",
+        "isDefault": true,
+        settings: {
+          "addresses": "your_email@adress.com",
+          "autoResolve": true,
+          "httpMethod": "POST",
+          "uploadImage": true
+        }
+      }
+  when: authkey.status == 200
+  tags: grafana
+
+# - name: import dashboards
+#   uri:
+#     url: https://localhost:{{ grafana_port }}/api/dashboards/import
+#     follow_redirects: all
+#     method: POST
+#     validate_certs: no
+#     force_basic_auth: yes
+#     headers:
+#       Accept: application/json
+#       Content-Type: application/json
+#       Authorization: "Bearer {{ authkey.json.key }}"
+#     body_format: json
+#     body: "{{ lookup('file', item) }}"
+#   with_items:
+#     - 'file1.json'
+#     - 'file2.json'
+#   when: authkey.status == 200
+#   tags: grafana
+
+# - name: import playlists
+#   uri:
+#     url: https://localhost:{{ grafana_port }}/api/playlists
+#     follow_redirects: all
+#     method: POST
+#     validate_certs: no
+#     force_basic_auth: yes
+#     headers:
+#       Accept: application/json
+#       Content-Type: application/json
+#       Authorization: "Bearer {{ authkey.json.key }}"
+#     body_format: json
+#     body: "{{ lookup('file', item) }}"
+#   with_items:
+#     - 'file.json'
+#   when: authkey.status == 200
+#   tags: grafana

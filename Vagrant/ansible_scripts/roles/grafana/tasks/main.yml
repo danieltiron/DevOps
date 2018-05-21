@@ -1,0 +1,141 @@
+- name: Install dependencies
+  package:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - apt-transport-https
+    - adduser
+    - ca-certificates
+    - libfontconfig
+  register: install_dep_packages
+  until: install_dep_packages is succeeded
+  retries: 5
+  delay: 2
+  tags: grafana
+
+- name: Remove conflicting grafana packages
+  package:
+    name: grafana-data
+    state: absent
+  register: old_grafana_packages
+  tags: grafana
+
+- name: Clean apt cache
+  command: apt clean
+  when:
+    - old_grafana_packages is changed
+  tags: grafana
+
+- name: Import Grafana GPG signing key
+  apt_key:
+    url: "https://packagecloud.io/gpg.key"
+    state: present
+    validate_certs: false
+  register: add_apt_key
+  until: add_apt_key is succeeded
+  retries: 5
+  delay: 2
+  environment:
+    http_proxy: "{{ http_proxy | default('') }}"
+    https_proxy: "{{ https_proxy | default('') }}"
+  tags: grafana
+
+- name: add Grafana repository
+  apt_repository:
+    repo: deb https://packagecloud.io/grafana/stable/debian/ jessie main
+    state: present
+    update_cache: false
+  register: apt_add_repo
+  tags: grafana
+
+- name: install Grafana
+  apt:
+    update_cache: yes
+    name: grafana
+    state: present
+  register: grafana_installed
+  notify: restart grafana
+  tags: grafana
+
+- name: ensure grafana configuration directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+    - "/etc/grafana"
+    - "/etc/grafana/datasources"
+    - "/etc/grafana/provisioning"
+    - "/etc/grafana/provisioning/datasources"
+  tags: grafana
+
+- name: create grafana directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: 0755
+    owner: "grafana"
+    group: "grafana"
+  with_items:
+    - "{{ grafana_logs_dir }}"
+    - "{{ grafana_data_dir }}"
+    - "{{ grafana_data_dir }}/dashboards"
+    - "{{ grafana_data_dir }}/plugins"
+  tags: grafana
+
+- name: disable analytics sending to stats.grafana.org
+  ini_file:
+    path: /etc/grafana/grafana.ini
+    section: analytics
+    option: reporting_enabled
+    value: 'false'
+  notify: restart grafana
+  tags: grafana
+
+- name: disable updates check on grafana.net
+  ini_file:
+    path: /etc/grafana/grafana.ini
+    section: analytics
+    option: check_for_updates
+    value: 'false'
+  notify: restart grafana
+  tags: grafana
+
+- name: change admin username
+  ini_file:
+    path: /etc/grafana/grafana.ini
+    section: security
+    option: admin_user
+    value: '{{ grafana_admin }}'
+  notify: restart grafana
+  tags: grafana
+
+- name: change admin password
+  ini_file:
+    path: /etc/grafana/grafana.ini
+    section: security
+    option: admin_password
+    value: '{{ grafana_pass }}'
+  notify: restart grafana
+  tags: grafana
+
+- name: start and enable grafana service
+  service: 
+    name: grafana-server
+    state: started
+    enabled: yes
+  register: server_started
+  tags: grafana
+
+- include: "add_resources.yml"
+  when:
+    - grafana_installed.changed
+    - server_started.state == "started"
+  tags: grafana
+
+- name: install plugins
+  command: "grafana-cli plugins install {{ item }}"
+  with_items: "{{ grafana.plugins }}"
+  notify: restart grafana
+  tags:
+    - grafana
+    - skip_ansible_lint

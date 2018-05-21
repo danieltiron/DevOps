@@ -1,0 +1,9 @@
+galaxy_info:
+  author: Daniel Tiron
+  description: install Grafana for for nice metrics dashboards
+  company: HomeInc.
+  min_ansible_version: 2.0
+  platforms:
+  - name: Ubuntu
+    versions:
+    - trusty

@@ -43,6 +43,7 @@
     update_cache: yes
     name: influxdb
     state: present
+  register: influx_installed
   notify: restart influx
 
 - name: check influx service is running
@@ -50,4 +51,16 @@
     name: influxdb
     state: started
     enabled: yes
+
+- name: Check user is created on influxdb
+  command: influx -execute 'SHOW USERS'
+  register: user_info
+  when: influx_installed.changed
+  tags:
+    - influxdb
+    - skip_ansible_lint
+
+- name: create user and database
+  include: create_influx_db_and_user.yml
+  when: user_info.changed
     
